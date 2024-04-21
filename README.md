@@ -7,6 +7,7 @@ On Windows, closing an ipv6 socket is a dark art, requiring ritual sacrifice and
 This utility happens to work on Linux too, but you can just as easily use this directly:
 
 `ss --kill state all src "remoteip:remoteport" dst "localip:localport"`
+
 `ss --kill state all src "localip:localport" dst "remoteip:remoteport"`
 
 ## Usage
