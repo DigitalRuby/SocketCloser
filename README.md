@@ -14,7 +14,7 @@ This utility happens to work on Linux too, but you can just as easily use this d
 `SocketCloser <localip:localport> <remoteip:remoteport>`
 
 ## Return value
-Exit codes...
+Exit codes...  
 0: success  
 -1: bad argument count  
 -2: bad local end point  
