@@ -99,15 +99,16 @@ public partial class SocketCloser : ISocketCloser
         return true;
     }
 
-    private static uint ToUInt32(IPAddress ip)
-    {
-        // we can safely assume ip is ipv4
-        Span<byte> bytes = stackalloc byte[4];
-        _ = ip.TryWriteBytes(bytes, out _);
-        return BitConverter.ToUInt32(bytes);
-    }
     private static bool CloseSocketWindows(IPEndPoint local, IPEndPoint remote)
     {
+        static uint ToUInt32(IPAddress ip)
+        {
+            // we can safely assume ip is ipv4
+            Span<byte> bytes = stackalloc byte[4];
+            _ = ip.TryWriteBytes(bytes, out _);
+            return BitConverter.ToUInt32(bytes);
+        }
+
         var localPortFixed = (ushort)IPAddress.HostToNetworkOrder((short)local.Port);
         var remotePortFixed = (ushort)IPAddress.HostToNetworkOrder((short)remote.Port);
 
