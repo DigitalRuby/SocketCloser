@@ -25,7 +25,14 @@ public interface ISocketCloser
 public partial class SocketCloser : ISocketCloser
 {
     private const int MIB_TCP_STATE_DELETE_TCB = 12;
+    private const int NsiActive = 1;
+    private const int NsiSetCreateOrSet = 2;
+    private const int objectIndex = 16; // What is this and why must it be 16? Nobody knows.
+    private const int windowsSocketCloseNotExistStatusCode = 317;
 
+    // voodoo, first two bytes are length in network host order (in this case 0x18), the rest of the bytes are a guid or IfLuid
+    // more info: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/device-stage/drivers/ff568813(v=vs.85)
+    // how was this discovered for killing sockets? Nobody knows.
     private static readonly byte[] moduleId = [0x18, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x4A, 0x00, 0xEB, 0x1A, 0x9B, 0xD4, 0x11, 0x91, 0x23, 0x00, 0x50, 0x04, 0x77, 0x59, 0xBC];
     private static readonly IntPtr moduleIdPtr;
     private static readonly int killTcpSocketData_V6_Size = Marshal.SizeOf<KillTcpSocketData_V6>();
@@ -123,7 +130,7 @@ public partial class SocketCloser : ISocketCloser
                 dwRemotePort = (uint)remotePortFixed
             };
             var result = SetTcpEntry(ref row);
-            return result == 0 || result == 317;
+            return result == 0 || result == windowsSocketCloseNotExistStatusCode;
         }
         else if (local.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
         {
@@ -145,8 +152,8 @@ public partial class SocketCloser : ISocketCloser
             try
             {
                 Marshal.StructureToPtr(row6, ptr, false);
-                var result = NsiSetAllParameters(1, 2, moduleIdPtr, 16, ptr, (uint)killTcpSocketData_V6_Size, IntPtr.Zero, 0);
-                return result == 0 || result == 317;
+                var result = NsiSetAllParameters(NsiActive, NsiSetCreateOrSet, moduleIdPtr, objectIndex, ptr, (uint)killTcpSocketData_V6_Size, IntPtr.Zero, 0);
+                return result == 0 || result == windowsSocketCloseNotExistStatusCode;
             }
             finally
             {
