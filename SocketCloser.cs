@@ -87,11 +87,16 @@ public partial class SocketCloser : ISocketCloser
 
     private static bool CloseSocketLinux(IPEndPoint local, IPEndPoint remote)
     {
-        // sudo ss --kill state all dst IP_ADDRESS:PORT src IP_ADDRESS:PORT
-        string command = $"ss --kill state all dst \"{local.Address}:{local.Port}\" src \"{remote.Address}:{remote.Port}\"";
-        using var proc = Process.Start("sudo", command);
-        proc.WaitForExit();
-        return proc.ExitCode == 0;
+        string command1 = $"ss --kill state all dst \"{local.Address}:{local.Port}\" src \"{remote.Address}:{remote.Port}\"";
+        using var proc1 = Process.Start("sudo", command1);
+
+        string command2 = $"ss --kill state all src \"{local.Address}:{local.Port}\" dst \"{remote.Address}:{remote.Port}\"";
+        using var proc2 = Process.Start("sudo", command2);
+
+        proc1.WaitForExit();
+        proc2.WaitForExit();
+
+        return true;
     }
 
     private static uint ToUInt32(IPAddress ip)
