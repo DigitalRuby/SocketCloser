@@ -1,4 +1,30 @@
-﻿using System.Diagnostics;
+﻿/*
+MIT License
+
+Copyright (c) 2012-present Digital Ruby, LLC
+- https://www.digitalruby.com
+- https://ipban.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -32,7 +58,7 @@ public partial class SocketCloser : ISocketCloser
 
     // voodoo, first two bytes are length in network host order (in this case 0x18), the rest of the bytes are a guid or IfLuid
     // more info: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/device-stage/drivers/ff568813(v=vs.85)
-    // how was this discovered for killing sockets? Nobody knows.
+    // how were these magic values discovered for killing sockets? Nobody knows.
     private static readonly byte[] moduleId = [0x18, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x4A, 0x00, 0xEB, 0x1A, 0x9B, 0xD4, 0x11, 0x91, 0x23, 0x00, 0x50, 0x04, 0x77, 0x59, 0xBC];
     private static readonly IntPtr moduleIdPtr;
     private static readonly int killTcpSocketData_V6_Size = Marshal.SizeOf<KillTcpSocketData_V6>();

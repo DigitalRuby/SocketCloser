@@ -20,3 +20,6 @@ Exit codes...
 -2: bad local end point  
 -3: bad remote end point  
 -4: failed to close socket  
+
+## License
+MIT
