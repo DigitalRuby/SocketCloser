@@ -87,8 +87,8 @@ public partial class SocketCloser : ISocketCloser
 
     private static bool CloseSocketLinux(IPEndPoint local, IPEndPoint remote)
     {
-        // sudo ss --kill state all src IP_ADDRESS:PORT dst IP_ADDRESS:PORT
-        string command = $"ss --kill state all src \"{local.Address}:{local.Port}\" dst \"{remote.Address}:{remote.Port}\"";
+        // sudo ss --kill state all dst IP_ADDRESS:PORT src IP_ADDRESS:PORT
+        string command = $"ss --kill state all dst \"{local.Address}:{local.Port}\" src \"{remote.Address}:{remote.Port}\"";
         using var proc = Process.Start("sudo", command);
         proc.WaitForExit();
         return proc.ExitCode == 0;
