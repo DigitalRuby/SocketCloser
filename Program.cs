@@ -31,7 +31,7 @@ if (args.Length != 2)
 {
     Console.WriteLine("Usage: <localip:localport> <remoteip:remoteport>");
     Console.WriteLine();
-    Console.WriteLine("IP of 0.0.0.0 or ::0 is wildcard. Port of 0 is wildcard.");
+    Console.WriteLine("IP of 0.0.0.0 (ipv4) or :: (ipv6) is wildcard. Port of 0 is wildcard.");
     return -1;
 }
 

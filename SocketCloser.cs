@@ -230,7 +230,7 @@ public partial class SocketCloser : ISocketCloser
             }
         }
 
-        return false;
+        return result;
     }
 }
 
