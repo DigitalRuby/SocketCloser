@@ -22,7 +22,7 @@ IP of `0.0.0.0` (ipv4) or `::` (ipv6) is wildcard. Port of `0` is wildcard.
 -2: bad local end point  
 -3: bad remote end point  
 -4: mismatching address families  
--5: wildcards used for both local and remote port  
+-5: wildcards used for both local and remote ip  
 -6: failed to close socket  
 ```
 
