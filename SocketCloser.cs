@@ -125,9 +125,9 @@ public partial class SocketCloser : ISocketCloser
         IPEndPoint remote)
     {
         var toClose = new List<(IPEndPoint local, IPEndPoint remote)>();
-        bool localAddressAny = local.Address.Equals(IPAddress.Any);
+        bool localAddressAny = local.Address.Equals(IPAddress.Any) || local.Address.Equals(IPAddress.IPv6Any);
         bool localPortAny = local.Port < 1;
-        bool remoteAddressAny = remote.Address.Equals(IPAddress.Any);
+        bool remoteAddressAny = remote.Address.Equals(IPAddress.Any) || remote.Address.Equals(IPAddress.IPv6Any);
         bool remotePortAny = remote.Port < 1;
 
         // if we have any wildcards, handle them

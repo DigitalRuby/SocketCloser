@@ -57,7 +57,8 @@ if (localEndPoint.AddressFamily != remoteEndPoint.AddressFamily)
     return -4;
 }
 
-if (localEndPoint.Address.Equals(IPAddress.Any) && remoteEndPoint.Address.Equals(IPAddress.Any))
+if ((localEndPoint.Address.Equals(IPAddress.Any) || localEndPoint.Address.Equals(IPAddress.IPv6Any)) &&
+    (remoteEndPoint.Address.Equals(IPAddress.Any) || remoteEndPoint.Address.Equals(IPAddress.IPv6Any)))
 {
     Console.WriteLine("At least one end point address must not be a wildcard.");
     return -5;
