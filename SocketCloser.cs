@@ -37,9 +37,9 @@ namespace SocketCloser;
 public interface ISocketCloser
 {
     /// <summary>
-    /// Close a socket using low level windows API. Handles ipv4 and ipv6.
+    /// Close a socket using low level windows API. Handles ipv4 and ipv6. Wildcards used for ip of zero and port of zero.
     /// </summary>
-    /// <param name="local">Local end point</param>
+    /// <param name="local">Local end point.</param>
     /// <param name="remote">Remote end point</param>
     /// <returns>True if closed, false if not</returns>
     bool CloseSocket(IPEndPoint local, IPEndPoint remote);
@@ -125,29 +125,21 @@ public partial class SocketCloser : ISocketCloser
         IPEndPoint remote)
     {
         var toClose = new List<(IPEndPoint local, IPEndPoint remote)>();
-        if (local.Address.Equals(IPAddress.Any))
-        {
-            var conns = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
-            var connectionsByRemote = conns.GroupBy(c => c.RemoteEndPoint.Address).ToDictionary(c => c.Key);
-            
-            // add all connections with the remote ip
-            if (connectionsByRemote.TryGetValue(remote.Address, out var items))
-            {
-                foreach (var conn in items.Where(i => remote.Port < 1 || i.RemoteEndPoint.Port == remote.Port))
-                {
-                    toClose.Add((conn.LocalEndPoint, conn.RemoteEndPoint));
-                }
-            }
-        }
-        else if (remote.Address.Equals(IPAddress.Any))
-        {
-            var conns = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
-            var connectionsByLocal = conns.GroupBy(c => c.LocalEndPoint.Address).ToDictionary(c => c.Key);
+        bool localAddressAny = local.Address.Equals(IPAddress.Any);
+        bool localPortAny = local.Port < 1;
+        bool remoteAddressAny = remote.Address.Equals(IPAddress.Any);
+        bool remotePortAny = remote.Port < 1;
 
-            // add all connections with the local ip
-            if (connectionsByLocal.TryGetValue(local.Address, out var items))
+        // if we have any wildcards, handle them
+        if (localAddressAny || localPortAny || remoteAddressAny || remotePortAny)
+        {
+            var conns = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
+            foreach (var conn in conns)
             {
-                foreach (var conn in items.Where(i => local.Port < 1 || i.LocalEndPoint.Port == local.Port))
+                if ((localAddressAny || conn.LocalEndPoint.Address.Equals(local.Address)) &&
+                    (localPortAny || conn.LocalEndPoint.Port == local.Port) &&
+                    (remoteAddressAny || conn.RemoteEndPoint.Address.Equals(remote.Address)) &&
+                    (remotePortAny || conn.RemoteEndPoint.Port == remote.Port))
                 {
                     toClose.Add((conn.LocalEndPoint, conn.RemoteEndPoint));
                 }

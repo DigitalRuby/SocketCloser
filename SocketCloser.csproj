@@ -6,6 +6,6 @@
 		<Nullable>enable</Nullable>
 		<InvariantGlobalization>true</InvariantGlobalization>
 		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-		<PublishAot>true</PublishAot>
+		<!-- <PublishAot>true</PublishAot> -->
 	</PropertyGroup>
 </Project>

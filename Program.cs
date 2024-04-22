@@ -31,29 +31,21 @@ if (args.Length != 2)
 {
     Console.WriteLine("Usage: <localip:localport> <remoteip:remoteport>");
     Console.WriteLine();
-    Console.WriteLine("Either local or remote may be a * for a wildcard, but not both.");
+    Console.WriteLine("IP of 0.0.0.0 or ::0 is wildcard. Port of 0 is wildcard.");
     return -1;
 }
 
 IPEndPoint? localEndPoint, remoteEndPoint;
 
 // attempt parse local end point
-if (args[0] == "*")
-{
-    localEndPoint = new IPEndPoint(IPAddress.Any, 0);
-}
-else if (!IPEndPoint.TryParse(args[0], out localEndPoint))
+if (!IPEndPoint.TryParse(args[0], out localEndPoint))
 {
     Console.WriteLine("Invalid local end point: {0}", args[0]);
     return -2;
 }
 
 // attempt parse remote end point
-if (args[1] == "*")
-{
-    remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-}
-else if (!IPEndPoint.TryParse(args[1], out remoteEndPoint))
+if (!IPEndPoint.TryParse(args[1], out remoteEndPoint))
 {
     Console.WriteLine("Invalid remote end point: {0}", args[1]);
     return -3;
@@ -67,7 +59,7 @@ if (localEndPoint.AddressFamily != remoteEndPoint.AddressFamily)
 
 if (localEndPoint.Address.Equals(IPAddress.Any) && remoteEndPoint.Address.Equals(IPAddress.Any))
 {
-    Console.WriteLine("At least one end point must not be a wildcard.");
+    Console.WriteLine("At least one end point address must not be a wildcard.");
     return -5;
 }
 
