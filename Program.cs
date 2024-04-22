@@ -47,11 +47,6 @@ else if (!IPEndPoint.TryParse(args[0], out localEndPoint))
     Console.WriteLine("Invalid local end point: {0}", args[0]);
     return -2;
 }
-else if (localEndPoint.Port < 1 || localEndPoint.Port > ushort.MaxValue)
-{
-    Console.WriteLine("Local port must be between 1 and {0}", ushort.MaxValue);
-    return -2;
-}
 
 // attempt parse remote end point
 if (args[1] == "*")
@@ -61,11 +56,6 @@ if (args[1] == "*")
 else if (!IPEndPoint.TryParse(args[1], out remoteEndPoint))
 {
     Console.WriteLine("Invalid remote end point: {0}", args[1]);
-    return -3;
-}
-else if (remoteEndPoint.Port < 1 || remoteEndPoint.Port > ushort.MaxValue)
-{
-    Console.WriteLine("Remote port must be between 1 and {0}", ushort.MaxValue);
     return -3;
 }
 

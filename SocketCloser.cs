@@ -133,7 +133,7 @@ public partial class SocketCloser : ISocketCloser
             // add all connections with the remote ip
             if (connectionsByRemote.TryGetValue(remote.Address, out var items))
             {
-                foreach (var conn in items)
+                foreach (var conn in items.Where(i => remote.Port < 1 || i.RemoteEndPoint.Port == remote.Port))
                 {
                     toClose.Add((conn.LocalEndPoint, conn.RemoteEndPoint));
                 }
@@ -147,7 +147,7 @@ public partial class SocketCloser : ISocketCloser
             // add all connections with the local ip
             if (connectionsByLocal.TryGetValue(local.Address, out var items))
             {
-                foreach (var conn in items)
+                foreach (var conn in items.Where(i => local.Port < 1 || i.LocalEndPoint.Port == local.Port))
                 {
                     toClose.Add((conn.LocalEndPoint, conn.RemoteEndPoint));
                 }
