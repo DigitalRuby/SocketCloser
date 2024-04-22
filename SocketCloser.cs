@@ -50,27 +50,27 @@ public interface ISocketCloser
 /// </summary>
 public partial class SocketCloser : ISocketCloser
 {
-    private const int MIB_TCP_STATE_DELETE_TCB = 12;
-    private const int NsiActive = 1;
-    private const int NsiSetCreateOrSet = 2;
-    private const int objectIndex = 16; // What is this and why must it be 16? Nobody knows.
+    private const int windowsMibTcpStateDeleteTcb = 12;
+    private const int windowsNsiActive = 1;
+    private const int windowsNsiSetCreateOrSet = 2;
+    private const int windowsObjectIndex = 16; // What is this and why must it be 16? Nobody knows.
     private const int windowsSocketCloseNotExistStatusCode = 317;
 
     // voodoo, first two bytes are length in network host order (in this case 0x18), the rest of the bytes are a guid or IfLuid
     // more info: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/device-stage/drivers/ff568813(v=vs.85)
     // how were these magic values discovered for killing sockets? Nobody knows.
-    private static readonly byte[] moduleId = [0x18, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x4A, 0x00, 0xEB, 0x1A, 0x9B, 0xD4, 0x11, 0x91, 0x23, 0x00, 0x50, 0x04, 0x77, 0x59, 0xBC];
-    private static readonly IntPtr moduleIdPtr;
-    private static readonly int killTcpSocketData_V6_Size = Marshal.SizeOf<KillTcpSocketData_V6>();
+    private static readonly byte[] windowsModuleId = [0x18, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x4A, 0x00, 0xEB, 0x1A, 0x9B, 0xD4, 0x11, 0x91, 0x23, 0x00, 0x50, 0x04, 0x77, 0x59, 0xBC];
+    private static readonly IntPtr windowsModuleIdPtr;
+    private static readonly int windowsKillTcpSocketDataV6Size = Marshal.SizeOf<WindowsKillTcpSocketDataV6>();
 
-    [LibraryImport("iphlpapi.dll", SetLastError = true)]
-    private static partial uint SetTcpEntry(ref MIB_TCPROW pTcpRow);
+    [LibraryImport("iphlpapi.dll", EntryPoint = "SetTcpEntry", SetLastError = true)]
+    private static partial uint WindowsSetTcpEntry(ref WindowsMibTcpRow pTcpRow);
 
-    [LibraryImport("nsi.dll", SetLastError = true)]
-    private static partial uint NsiSetAllParameters(uint action, uint flags, IntPtr moduleId, uint operation, IntPtr buffer, uint bufferLength, IntPtr metric, uint metricLength);
+    [LibraryImport("nsi.dll", EntryPoint = "NsiSetAllParameters", SetLastError = true)]
+    private static partial uint WindowsNsiSetAllParameters(uint action, uint flags, IntPtr moduleId, uint operation, IntPtr buffer, uint bufferLength, IntPtr metric, uint metricLength);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct MIB_TCPROW
+    private struct WindowsMibTcpRow
     {
         public uint dwState;
         public uint dwLocalAddr;
@@ -80,7 +80,7 @@ public partial class SocketCloser : ISocketCloser
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct KillTcpSocketData_V6
+    private struct WindowsKillTcpSocketDataV6
     {
         public ushort wLocalAddressFamily;
         public ushort wLocalPort;
@@ -99,40 +99,85 @@ public partial class SocketCloser : ISocketCloser
 
     static SocketCloser()
     {
-        moduleIdPtr = Marshal.AllocHGlobal(moduleId.Length);
-        Marshal.Copy(moduleId, 0, moduleIdPtr, moduleId.Length);
+        windowsModuleIdPtr = Marshal.AllocHGlobal(windowsModuleId.Length);
+        Marshal.Copy(windowsModuleId, 0, windowsModuleIdPtr, windowsModuleId.Length);
     }
 
     /// <inheritdoc />
     public bool CloseSocket(IPEndPoint local, IPEndPoint remote)
     {
+        // get all network connections, put into a dictionary with key of local ip
+        var toClose = GetEntriesToClose(local, remote);
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return CloseSocketLinux(local, remote);
+            return CloseSocketLinux(toClose);
         }
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            return CloseSocketWindows(local, remote);
+            return CloseSocketWindows(toClose);
         }
 
         return false;
     }
 
-    private static bool CloseSocketLinux(IPEndPoint local, IPEndPoint remote)
+    private static List<(IPEndPoint local, IPEndPoint remote)> GetEntriesToClose(IPEndPoint local,
+        IPEndPoint remote)
     {
-        string command1 = $"ss --kill state all dst \"{local.Address}:{local.Port}\" src \"{remote.Address}:{remote.Port}\"";
-        using var proc1 = Process.Start("sudo", command1);
+        var toClose = new List<(IPEndPoint local, IPEndPoint remote)>();
+        if (local.Address.Equals(IPAddress.Any))
+        {
+            var conns = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
+            var connectionsByRemote = conns.GroupBy(c => c.RemoteEndPoint.Address).ToDictionary(c => c.Key);
+            
+            // add all connections with the remote ip
+            if (connectionsByRemote.TryGetValue(remote.Address, out var items))
+            {
+                foreach (var conn in items)
+                {
+                    toClose.Add((conn.LocalEndPoint, conn.RemoteEndPoint));
+                }
+            }
+        }
+        else if (remote.Address.Equals(IPAddress.Any))
+        {
+            var conns = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
+            var connectionsByLocal = conns.GroupBy(c => c.LocalEndPoint.Address).ToDictionary(c => c.Key);
 
-        string command2 = $"ss --kill state all src \"{local.Address}:{local.Port}\" dst \"{remote.Address}:{remote.Port}\"";
-        using var proc2 = Process.Start("sudo", command2);
+            // add all connections with the local ip
+            if (connectionsByLocal.TryGetValue(local.Address, out var items))
+            {
+                foreach (var conn in items)
+                {
+                    toClose.Add((conn.LocalEndPoint, conn.RemoteEndPoint));
+                }
+            }
+        }
+        else
+        {
+            toClose.Add((local, remote));
+        }
+        return toClose;
+    }
 
-        proc1.WaitForExit();
-        proc2.WaitForExit();
+    private static bool CloseSocketLinux(List<(IPEndPoint local, IPEndPoint remote)> toClose)
+    {
+        foreach (var (local, remote) in toClose)
+        {
+            string command1 = $"ss --kill state all dst \"{local.Address}:{local.Port}\" src \"{remote.Address}:{remote.Port}\"";
+            using var proc1 = Process.Start("sudo", command1);
+
+            string command2 = $"ss --kill state all src \"{local.Address}:{local.Port}\" dst \"{remote.Address}:{remote.Port}\"";
+            using var proc2 = Process.Start("sudo", command2);
+
+            proc1.WaitForExit();
+            proc2.WaitForExit();
+        }
 
         return true;
     }
 
-    private static bool CloseSocketWindows(IPEndPoint local, IPEndPoint remote)
+    private static bool CloseSocketWindows(List<(IPEndPoint local, IPEndPoint remote)> toClose)
     {
         static uint ToUInt32(IPAddress ip)
         {
@@ -142,49 +187,54 @@ public partial class SocketCloser : ISocketCloser
             return BitConverter.ToUInt32(bytes);
         }
 
-        var localPortFixed = (ushort)IPAddress.HostToNetworkOrder((short)local.Port);
-        var remotePortFixed = (ushort)IPAddress.HostToNetworkOrder((short)remote.Port);
+        bool result = true;
 
-        if (local.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        foreach (var (local, remote) in toClose)
         {
-            MIB_TCPROW row = new()
-            {
-                dwState = MIB_TCP_STATE_DELETE_TCB,
-                dwLocalAddr = ToUInt32(local.Address),
-                dwLocalPort = (uint)localPortFixed,
-                dwRemoteAddr = ToUInt32(remote.Address),
-                dwRemotePort = (uint)remotePortFixed
-            };
-            var result = SetTcpEntry(ref row);
-            return result == 0 || result == windowsSocketCloseNotExistStatusCode;
-        }
-        else if (local.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
-        {
-            KillTcpSocketData_V6 row6 = new()
-            {
-                wLocalAddressFamily = (ushort)AddressFamily.InterNetworkV6,
-                wLocalPort = localPortFixed,
-                bLocal = local.Address.GetAddressBytes(),
-                bRemote = remote.Address.GetAddressBytes(),
-                bReserved1 = 0,
-                bReserved2 = 0,
-                dwLocalScopeID = (uint)IPAddress.HostToNetworkOrder(local.Address.ScopeId),
-                dwRemoteScopeID = (uint)IPAddress.HostToNetworkOrder(remote.Address.ScopeId),
-                wRemoteAddressFamily = (ushort)AddressFamily.InterNetworkV6,
-                wRemotePort = remotePortFixed
-            };
+            var localPortFixed = (ushort)IPAddress.HostToNetworkOrder((short)local.Port);
+            var remotePortFixed = (ushort)IPAddress.HostToNetworkOrder((short)remote.Port);
 
-            var ptr = Marshal.AllocHGlobal(killTcpSocketData_V6_Size);
-            try
+            if (local.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
             {
-                Marshal.StructureToPtr(row6, ptr, false);
-                var result = NsiSetAllParameters(NsiActive, NsiSetCreateOrSet, moduleIdPtr, objectIndex, ptr, (uint)killTcpSocketData_V6_Size, IntPtr.Zero, 0);
-                return result == 0 || result == windowsSocketCloseNotExistStatusCode;
+                WindowsMibTcpRow row = new()
+                {
+                    dwState = windowsMibTcpStateDeleteTcb,
+                    dwLocalAddr = ToUInt32(local.Address),
+                    dwLocalPort = (uint)localPortFixed,
+                    dwRemoteAddr = ToUInt32(remote.Address),
+                    dwRemotePort = (uint)remotePortFixed
+                };
+                var windowsResult = WindowsSetTcpEntry(ref row);
+                result &= (windowsResult == 0 || windowsResult == windowsSocketCloseNotExistStatusCode);
             }
-            finally
+            else if (local.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
             {
-                // Cleanup
-                Marshal.FreeHGlobal(ptr);
+                WindowsKillTcpSocketDataV6 row6 = new()
+                {
+                    wLocalAddressFamily = (ushort)AddressFamily.InterNetworkV6,
+                    wLocalPort = localPortFixed,
+                    bLocal = local.Address.GetAddressBytes(),
+                    bRemote = remote.Address.GetAddressBytes(),
+                    bReserved1 = 0,
+                    bReserved2 = 0,
+                    dwLocalScopeID = (uint)IPAddress.HostToNetworkOrder(local.Address.ScopeId),
+                    dwRemoteScopeID = (uint)IPAddress.HostToNetworkOrder(remote.Address.ScopeId),
+                    wRemoteAddressFamily = (ushort)AddressFamily.InterNetworkV6,
+                    wRemotePort = remotePortFixed
+                };
+
+                var ptr = Marshal.AllocHGlobal(windowsKillTcpSocketDataV6Size);
+                try
+                {
+                    Marshal.StructureToPtr(row6, ptr, false);
+                    var windowsResult = WindowsNsiSetAllParameters(windowsNsiActive, windowsNsiSetCreateOrSet, windowsModuleIdPtr, windowsObjectIndex, ptr, (uint)windowsKillTcpSocketDataV6Size, IntPtr.Zero, 0);
+                    result &= (windowsResult == 0 || windowsResult == windowsSocketCloseNotExistStatusCode);
+                }
+                finally
+                {
+                    // Cleanup
+                    Marshal.FreeHGlobal(ptr);
+                }
             }
         }
 

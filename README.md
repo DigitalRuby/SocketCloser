@@ -15,11 +15,13 @@ This utility happens to work on Linux too, but you can just as easily use this d
 
 ## Return value
 Exit codes...  
-0: success  
+ 0: success  
 -1: bad argument count  
 -2: bad local end point  
 -3: bad remote end point  
--4: failed to close socket  
+-4: mismatching address families
+-5: wildcards used for both local and remote port
+-6: failed to close socket  
 
 ## License
 MIT

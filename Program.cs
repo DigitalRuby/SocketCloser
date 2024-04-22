@@ -30,21 +30,55 @@ using System.Net;
 if (args.Length != 2)
 {
     Console.WriteLine("Usage: <localip:localport> <remoteip:remoteport>");
+    Console.WriteLine();
+    Console.WriteLine("Either local or remote may be a * for a wildcard, but not both.");
     return -1;
 }
 
+IPEndPoint? localEndPoint, remoteEndPoint;
+
 // attempt parse local end point
-if (!IPEndPoint.TryParse(args[0], out var localEndPoint))
+if (args[0] == "*")
+{
+    localEndPoint = new IPEndPoint(IPAddress.Any, 0);
+}
+else if (!IPEndPoint.TryParse(args[0], out localEndPoint))
 {
     Console.WriteLine("Invalid local end point: {0}", args[0]);
     return -2;
 }
+else if (localEndPoint.Port < 1 || localEndPoint.Port > ushort.MaxValue)
+{
+    Console.WriteLine("Local port must be between 1 and {0}", ushort.MaxValue);
+    return -2;
+}
 
 // attempt parse remote end point
-if (!IPEndPoint.TryParse(args[1], out var remoteEndPoint))
+if (args[1] == "*")
+{
+    remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+}
+else if (!IPEndPoint.TryParse(args[1], out remoteEndPoint))
 {
     Console.WriteLine("Invalid remote end point: {0}", args[1]);
     return -3;
+}
+else if (remoteEndPoint.Port < 1 || remoteEndPoint.Port > ushort.MaxValue)
+{
+    Console.WriteLine("Remote port must be between 1 and {0}", ushort.MaxValue);
+    return -3;
+}
+
+if (localEndPoint.AddressFamily != remoteEndPoint.AddressFamily)
+{
+    Console.WriteLine("Local and remote end points must have the same address family.");
+    return -4;
+}
+
+if (localEndPoint.Address.Equals(IPAddress.Any) && remoteEndPoint.Address.Equals(IPAddress.Any))
+{
+    Console.WriteLine("At least one end point must not be a wildcard.");
+    return -5;
 }
 
 // attempt close socket
@@ -52,7 +86,7 @@ SocketCloser.SocketCloser closer = new();
 if (!closer.CloseSocket(localEndPoint, remoteEndPoint))
 {
     Console.WriteLine("Failed to close socket for {0} <-> {1}", localEndPoint, remoteEndPoint);
-    return -4;
+    return -6;
 }
 
 // success
