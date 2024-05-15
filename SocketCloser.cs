@@ -37,7 +37,7 @@ namespace SocketCloser;
 public interface ISocketCloser
 {
     /// <summary>
-    /// Close a socket using low level windows API. Handles ipv4 and ipv6. Wildcards used for ip of zero and port of zero.
+    /// Close a socket. Handles ipv4 and ipv6. Wildcards used for ip of zero and port of zero.
     /// </summary>
     /// <param name="local">Local end point.</param>
     /// <param name="remote">Remote end point</param>
